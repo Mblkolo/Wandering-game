@@ -37,6 +37,8 @@ namespace Wandering
 		const int maxTelepotDepth = 5;
 		Color[] LevelColor = new Color[maxTelepotDepth];
 
+		bool debugMode = false;
+
 
         public Game()
         {
@@ -86,7 +88,7 @@ namespace Wandering
 			effect.Projection = prj;
 
 			gateView = new RenderTarget2D(graphics.GraphicsDevice, w, h, false, SurfaceFormat.Rgba64, DepthFormat.None);
-			gateShadow = new RenderTarget2D(graphics.GraphicsDevice, w, h, false, SurfaceFormat.Rgba64, DepthFormat.None);
+			gateShadow = new RenderTarget2D(graphics.GraphicsDevice, w, h, false, SurfaceFormat.Rgba64, DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
 			mainView = new RenderTarget2D[maxTelepotDepth];
 			for(int i=0; i<mainView.Length; ++i)
 				mainView[i] = new RenderTarget2D(graphics.GraphicsDevice, w, h, false, SurfaceFormat.Rgba64, DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
@@ -203,7 +205,7 @@ namespace Wandering
 
 			var oldRenderTargets = graphics.GraphicsDevice.GetRenderTargets();
 			graphics.GraphicsDevice.SetRenderTarget( mainView[depth] );
-			graphics.GraphicsDevice.Clear(LevelColor[depth]);
+			graphics.GraphicsDevice.Clear(debugMode ? LevelColor[depth] : Color.White);
 			
 			//Рисуем полигоны уровня
 			DrawLelel(pos, direction);
@@ -241,15 +243,16 @@ namespace Wandering
 			effect.CurrentTechnique.Passes[0].Apply();
 						
 			level.Poligons.ForEach(x => {
-				drawPoligonShadow(pos, x.Vertexs);
+				drawPoligonShadow(pos, x.Vertexs, debugMode ? Color.Red : Color.Black);
 				graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.TriangleList, x.Vertexs, 0, x.TringleCount);
 			});
 
-			level.Teleports.ForEach(x =>
-			{
-				graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.LineList, x.GateA.Vertexes, 0, 1);
-				graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.LineList, x.GateB.Vertexes, 0, 1);
-			});
+			if(debugMode)
+				level.Teleports.ForEach(x =>
+				{
+					graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.LineList, x.GateA.Vertexes, 0, 1);
+					graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.LineList, x.GateB.Vertexes, 0, 1);
+				});
 
 			var vertexList = new VertexPositionColor[3];
 			vertexList[1] = new VertexPositionColor(new Vector3(0 + level.Player.Pos.X, 0.5f + level.Player.Pos.Y, 0), Color.Gray);
@@ -265,26 +268,33 @@ namespace Wandering
 			effect.View = t;
 		}
 
-		void drawPoligonShadow(Vector2 pos, VertexPositionColor[] vertexs)
+		void drawPoligonShadow(Vector2 pos, VertexPositionColor[] vertexs, Color color)
 		{
 			//всё просто, нужно определить крайние точки из vertexs
+
+			toStartShadowLine(pos, vertexs, (a, b) => drawShadow(new Vector3(pos, 0), a, b, color));
+		}
+
+		void toStartShadowLine(Vector2 pos, VertexPositionColor[] vertexs, Action<Vector3, Vector3> callback)
+		{
 			var center = new Vector3(pos, 0);
-			
+
 			var a = vertexs[0].Position - center; //минимальный градус
 			var b = vertexs[0].Position - center; //максимальный градус
 
-			for(int i=0; i<vertexs.Length; ++i)
+			for (int i = 0; i < vertexs.Length; ++i)
 			{
 				var sample = vertexs[i].Position - center;
 
-				if( a.X *( -sample.Y) + a.Y * sample.X > 0)
+				if (a.X * (-sample.Y) + a.Y * sample.X > 0)
 					a = sample;
 
 				if (b.X * (-sample.Y) + b.Y * sample.X < 0)
 					b = sample;
 			}
 
-			drawShadow(center, a + center, b + center, Color.Red);
+			callback(center + a, center + b);
+
 		}
 
 		void MixTexture(RenderTarget2D src, RenderTarget2D mask = null)
@@ -324,61 +334,63 @@ namespace Wandering
 			return direction + gate.Pair.Angle - (gate.Angle + 180);
 		}
 
-		void drawGate(World.Gate gate, Vector2 pos, float direction)
+		/// <summary>
+		/// Проверяет находится ли отрезок [b1,b2] в тени [a1,a2], если смотреть из pos
+		/// </summary>
+		/// <returns>true - если находится</returns>
+		bool testShasow(Vector2 pos, Vector2 a1, Vector2 a2, Vector2 b1, Vector2 b2)
 		{
-			//save(mainView);
+			a1 = a1 - pos;
+			a2 = a2 - pos;
+			b1 = b1 - pos;
+			b2 = b2 - pos;
 
+			//1. разница между вторыми и первыми точками должна быть не меньше нуля и меньше 180 градусов
+			if (angleTest(a1, a2) < 0)
+				Swap(ref a1, ref a2);
 
+			if (angleTest(b1, b2) < 0)
+				Swap(ref a1, ref a2);
 
-			var a = gate.Vertexes[0].Position;
-			var b = gate.Vertexes[1].Position;
+			//2. хотя бы одна точка должна лежать в полуплости куда падает тень
+			var sh = a2 - a1;
+			var b1InShadow = angleTest(sh, b1 - a1) <= 0;
+			var b2InShadow = angleTest(sh, b2 - a1) <= 0;
+			if ( !b1InShadow && !b2InShadow)
+				return false;
 
-			//drawShadow(pos, new Vector2(a.X, a.Y), new Vector2(b.X, b.Y));
+			//3. если хотя бы одна точка находится в тени заданного отрезка, то тест положителен
+			if( b1InShadow && (angleTest(a1, b1) > 0 && angleTest(a2, b1) < 0) )
+				return true;
 
+			if (b2InShadow && (angleTest(a1, b2) > 0 && angleTest(a2, b2) < 0))
+				return true;
 
-			var gateSrcPos = Vector2.Transform(gate.Center, Matrix.CreateRotationZ(-MathHelper.ToRadians(direction)));
-			var gateDstPos = Vector2.Transform(gate.Pair.Center, Matrix.CreateRotationZ(-MathHelper.ToRadians(direction)));
-			//1. Совмещаем текущие врата с нулём
-			var tg1 = Matrix.CreateTranslation(-gate.Center.X, -gate.Center.Y, 0);
+			//4. если точки в разных полуплостях относительно одного из векторов задающих отрезок тени, то тест положителен
+			if (b1InShadow && angleTest(a1, b1) <= 0 && angleTest(a1, b2) > 0)
+				return true;
 			
-			//2. Поворачиваем текущие врата, чтобы совместить их наклон с выходными
-			var rg1 = Matrix.CreateRotationZ( MathHelper.ToRadians(gate.Pair.Angle - (gate.Angle + 180)) );
+			if(b2InShadow && angleTest(a2, b2) >= 0 && angleTest(a2, b1) < 0)
+				return true;
 
-			//3. Совмещаем положение текущих врат с выходными
-			var tg2 = Matrix.CreateTranslation(new Vector3(gate.Pair.Center, 0));
+			return false;
+		}
 
-			//4. Положение персонажа относительно выходных врат
-			var altPlayer = Vector2.Transform(pos, tg1 * rg1 * tg2);
+		/// <summary>
+		/// Опеределяет положение вектора b относительно a
+		/// </summary>
+		/// <returns>больше нуля, если +0...+180, меньше нуля, если -0...-180 градусо </returns>
+		float angleTest(Vector2 a, Vector2 b)
+		{
+			return (-a.Y)*b.X + a.X*b.Y;
+		}
 
-			//5. Направление взгляда персонажа относительно выходных врат
-			var altDirection = MathHelper.ToRadians(direction + gate.Pair.Angle - (gate.Angle + 180));
-
-			//6. Теперь перемещаем игрока в центр и поворачиваем на север
-			var translation = Matrix.CreateTranslation(new Vector3(-altPlayer, 0));
-			var rotation = Matrix.CreateRotationZ(-altDirection);
-
-			var t = graphics.GraphicsDevice.GetRenderTargets();
-			graphics.GraphicsDevice.SetRenderTarget(gateView);
-			graphics.GraphicsDevice.Clear(Color.Green);
-			//DrawLelel(translation * rotation);
-
-			//graphics.GraphicsDevice.SetRenderTarget(mainView);
-
-
-			spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.NonPremultiplied);
-
-			mixEffect.Parameters["AlphaMap"].SetValue(gateShadow);
-			mixEffect.CurrentTechnique.Passes[0].Apply();
-			spriteBatch.Draw(gateView, graphics.GraphicsDevice.Viewport.Bounds, Color.White);
-			
-			spriteBatch.End();
-
-			
-			graphics.GraphicsDevice.SetRenderTargets(t);
-
-			//save(gateShadow, "1");
-			//save(gateView, "2");
-			//save(mainView);
+		static void Swap<T>(ref T lhs, ref T rhs)
+		{
+			T temp;
+			temp = lhs;
+			lhs = rhs;
+			rhs = temp;
 		}
 
 		float getAngle(Vector2 v)
@@ -420,6 +432,17 @@ namespace Wandering
 			graphics.GraphicsDevice.Clear(Color.Transparent);
 			
 			drawShadow(new Vector3(pos,0), a, b, Color.White);
+
+			//затираем тенями
+			var lA = a;
+			var lB = b;
+			level.Poligons.ForEach(x => 
+				toStartShadowLine(pos, x.Vertexs, (sh1, sh2) => 
+				{
+					if (testShasow(pos, new Vector2(sh1.X, sh1.Y), new Vector2(sh2.X, sh2.Y), new Vector2(lA.X, lA.Y), new Vector2(lB.X, lB.Y)))
+						drawShadow(new Vector3(pos, 0), sh1, sh2, Color.Black);
+				})
+			);
 
 			graphics.GraphicsDevice.SetRenderTargets(oldRenderTargets);
 		}

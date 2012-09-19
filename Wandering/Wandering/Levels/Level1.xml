@@ -1,13 +1,19 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <Level>
-  <Player x="0" y ="0" direction="90" />
+  <Player x="0" y ="0" direction="0" />
   <Scene>
     <Poligon>
-      <Point x="10" y="10" />
-      <Point x="10" y="20" />
-      <Point x="20" y="20" />
-      <Point x="20" y="7" />
+      <Point x="-10" y="10" />
+      <Point x="-5" y="10" />
+      <Point x="-5" y="-10" />
+      <Point x="-10" y="-10" />
     </Poligon>
-    <Teleport x1="-10" y1="-5" x2="-10" y2="5" ang1="0" ang2="180" len=" 15" />
+    <Poligon>
+      <Point x="10" y="10" />
+      <Point x="5" y="10" />
+      <Point x="5" y="-10" />
+      <Point x="10" y="-10" />
+    </Poligon>
+    <Teleport x1="0" y1="-5" x2="0" y2="5" ang1="180" ang2="0" len="10" />
   </Scene>
 </Level>
