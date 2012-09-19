@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Level>
+  <Player x="0" y ="0" direction="90" />
+  <Scene>
+    <Poligon>
+      <Point x="10" y="10" />
+      <Point x="10" y="20" />
+      <Point x="20" y="20" />
+      <Point x="20" y="7" />
+    </Poligon>
+    <Teleport x1="-10" y1="-5" x2="-10" y2="5" ang1="0" ang2="180" len=" 15" />
+  </Scene>
+</Level>
