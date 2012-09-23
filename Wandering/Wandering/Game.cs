@@ -12,13 +12,13 @@ using System.IO;
 
 namespace Wandering
 {
-    /// <summary>
-    /// This is the main type for your game
-    /// </summary>
-    public class Game : Microsoft.Xna.Framework.Game
-    {
-        GraphicsDeviceManager graphics;
-        World.Level level;
+	/// <summary>
+	/// This is the main type for your game
+	/// </summary>
+	public class Game : Microsoft.Xna.Framework.Game
+	{
+		GraphicsDeviceManager graphics;
+		World.Level level;
 
 		// описание формата вершин
 		VertexDeclaration vertexDeclaration;
@@ -40,32 +40,32 @@ namespace Wandering
 		bool debugMode = false;
 
 
-        public Game()
-        {
-            graphics = new GraphicsDeviceManager(this);
-            Content.RootDirectory = "Content";
-        }
+		public Game()
+		{
+			graphics = new GraphicsDeviceManager(this);
+			Content.RootDirectory = "Content";
+		}
 
-        /// <summary>
-        /// Allows the game to perform any initialization it needs to before starting to run.
-        /// This is where it can query for any required services and load any non-graphic
-        /// related content.  Calling base.Initialize will enumerate through any components
-        /// and initialize them as well.
-        /// </summary>
-        protected override void Initialize()
-        {
-            // TODO: Add your initialization logic here
+		/// <summary>
+		/// Allows the game to perform any initialization it needs to before starting to run.
+		/// This is where it can query for any required services and load any non-graphic
+		/// related content.  Calling base.Initialize will enumerate through any components
+		/// and initialize them as well.
+		/// </summary>
+		protected override void Initialize()
+		{
+			// TODO: Add your initialization logic here
 
-            base.Initialize();
-        }
+			base.Initialize();
+		}
 
-        /// <summary>
-        /// LoadContent will be called once per game and is the place to load
-        /// all of your content.
-        /// </summary>
-        protected override void LoadContent()
-        {
-            // TODO: use this.Content to load your game content here
+		/// <summary>
+		/// LoadContent will be called once per game and is the place to load
+		/// all of your content.
+		/// </summary>
+		protected override void LoadContent()
+		{
+			// TODO: use this.Content to load your game content here
 
 			level = World.Scene.LoadLevel(1);
 
@@ -100,29 +100,29 @@ namespace Wandering
 			}
 
 			spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
-        }
+		}
 
-        /// <summary>
-        /// UnloadContent will be called once per game and is the place to unload
-        /// all content.
-        /// </summary>
-        protected override void UnloadContent()
-        {
-            // TODO: Unload any non ContentManager content here
-        }
+		/// <summary>
+		/// UnloadContent will be called once per game and is the place to unload
+		/// all content.
+		/// </summary>
+		protected override void UnloadContent()
+		{
+			// TODO: Unload any non ContentManager content here
+		}
 
-        /// <summary>
-        /// Allows the game to run logic such as updating the world,
-        /// checking for collisions, gathering input, and playing audio.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
-        protected override void Update(GameTime gameTime)
-        {
-            // Allows the game to exit
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
-                this.Exit();
+		/// <summary>
+		/// Allows the game to run logic such as updating the world,
+		/// checking for collisions, gathering input, and playing audio.
+		/// </summary>
+		/// <param name="gameTime">Provides a snapshot of timing values.</param>
+		protected override void Update(GameTime gameTime)
+		{
+			// Allows the game to exit
+			if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
+				this.Exit();
 
-            // TODO: Add your update logic here
+			// TODO: Add your update logic here
 			var kState = Keyboard.GetState();
 			Vector2 direction = new Vector2();
 			if (kState.IsKeyDown(Keys.Up))
@@ -171,34 +171,35 @@ namespace Wandering
 			}
 
 
-            base.Update(gameTime);
-        }
+			base.Update(gameTime);
+		}
 
 		bool plusPresed = false;
 		bool minusPresed = false;
 
 
-        /// <summary>
-        /// This is called when the game should draw itself.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
-        protected override void Draw(GameTime gameTime)
-        {
+		/// <summary>
+		/// This is called when the game should draw itself.
+		/// </summary>
+		/// <param name="gameTime">Provides a snapshot of timing values.</param>
+		protected override void Draw(GameTime gameTime)
+		{
 			// отключить отсечение невидимых поверхностей
 			GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 			effect.VertexColorEnabled = true;
 
-			DrawLevelRecursive(level.Player.Pos, level.Player.direction, 0);
+			DrawLevelRecursive(level.Player.Pos, level.Player.direction, 0, null);
 
 			graphics.GraphicsDevice.SetRenderTarget(null);
 			spriteBatch.Begin();
 			spriteBatch.Draw(mainView[0], graphics.GraphicsDevice.Viewport.Bounds, Color.White);
 			spriteBatch.End();
 
-            base.Draw(gameTime);
-        }
+			base.Draw(gameTime);
+		}
 
-		RenderTarget2D DrawLevelRecursive(Vector2 pos, float direction, int depth)
+		int startDepth = 0;
+		RenderTarget2D DrawLevelRecursive(Vector2 pos, float direction, int depth, World.Gate gate)
 		{
 			if (depth >= telepotDepth)
 				return null;
@@ -208,7 +209,8 @@ namespace Wandering
 			graphics.GraphicsDevice.Clear(debugMode ? LevelColor[depth] : Color.White);
 			
 			//Рисуем полигоны уровня
-			DrawLelel(pos, direction);
+			if (depth >= startDepth)
+				DrawLelel(pos, direction, gate);
 
 			//Рисуем то, что за телепортами
 			var gates = level.Teleports.SelectMany(x => new World.Gate[]{x.GateA, x.GateB}).OrderByDescending(x => (x.Center - pos).Length())
@@ -218,14 +220,16 @@ namespace Wandering
 				var gPos = positionFromGate(x, pos);
 				var gDir = directionFromGate(x, direction);
 
-				var rt = DrawLevelRecursive(gPos, gDir, depth+1);
+				var rt = DrawLevelRecursive(gPos, gDir, depth+1, x.Pair);
 				if(rt==null)
 					return;
-				
-				drawShadow(x, pos, direction);
+
+				if (depth >= startDepth)
+					drawGateShadow(x, pos, direction);
+				else
+					fillGateShadow();
 
 				MixTexture(rt, gateShadow);
-				
 			});
 
 			graphics.GraphicsDevice.SetRenderTargets(oldRenderTargets);
@@ -235,7 +239,7 @@ namespace Wandering
 
 
 
-		void DrawLelel(Vector2 pos, float direction)
+		void DrawLelel(Vector2 pos, float direction, World.Gate gate)
 		{
 			var t = effect.View;
 			effect.View = Matrix.CreateTranslation(new Vector3(-pos, 0)) * Matrix.CreateRotationZ( MathHelper.ToRadians(-direction) );
@@ -243,7 +247,7 @@ namespace Wandering
 			effect.CurrentTechnique.Passes[0].Apply();
 						
 			level.Poligons.ForEach(x => {
-				drawPoligonShadow(pos, x.Vertexs, debugMode ? Color.Red : Color.Black);
+				drawPoligonShadow(pos, x.Points, gate, debugMode ? Color.Red : Color.Black);
 				graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.TriangleList, x.Vertexs, 0, x.TringleCount);
 			});
 
@@ -268,33 +272,103 @@ namespace Wandering
 			effect.View = t;
 		}
 
-		void drawPoligonShadow(Vector2 pos, VertexPositionColor[] vertexs, Color color)
+		void drawPoligonShadow(Vector2 pos, Vector2[] vertexs, World.Gate gate, Color color)
 		{
 			//всё просто, нужно определить крайние точки из vertexs
 
-			toStartShadowLine(pos, vertexs, (a, b) => drawShadow(new Vector3(pos, 0), a, b, color));
+			toStartShadowLine(pos, vertexs, gate, (a, b) => drawShadow(new Vector3(pos, 0), new Vector3(a, 0), new Vector3(b, 0), color));
 		}
 
-		void toStartShadowLine(Vector2 pos, VertexPositionColor[] vertexs, Action<Vector3, Vector3> callback)
+		void toStartShadowLine(Vector2 pos, Vector2[] vertexs, World.Gate gate, Action<Vector2, Vector2> callback)
 		{
-			var center = new Vector3(pos, 0);
+			//var center = new Vector3(pos, 0);
 
-			var a = vertexs[0].Position - center; //минимальный градус
-			var b = vertexs[0].Position - center; //максимальный градус
+			Vector2? a = null;
+			Vector2? b = null;
+
+			cutShape(pos, vertexs, gate, point => 
+			{
+
+				if (a == null)
+				{
+					a = point - pos; //минимальный градус
+					b = point - pos; //максимальный градус
+				}
+
+				var sample = point - pos;
+
+				if (a.Value.X * (-sample.Y) + a.Value.Y * sample.X > 0)
+					a = sample;
+
+				if (b.Value.X * (-sample.Y) + b.Value.Y * sample.X < 0)
+					b = sample;
+
+				
+			});
+
+			if(a!=null)
+				callback(pos + a.Value, pos + b.Value);
+		}
+
+		void cutShape(Vector2 pos, Vector2[] vertexs, World.Gate gate, Action<Vector2> pointCallback)
+		{
+
+			if (gate == null)
+			{
+				for(int i=0; i<vertexs.Length; ++i)
+					pointCallback(vertexs[i]);
+				return;
+			}
+
+			float A = gate.Vertexes[0].Position.Y - gate.Vertexes[1].Position.Y;
+			float B = gate.Vertexes[1].Position.X - gate.Vertexes[0].Position.X;
+			float C = gate.Vertexes[0].Position.X * gate.Vertexes[1].Position.Y - gate.Vertexes[1].Position.X * gate.Vertexes[0].Position.Y;
+
+			if (A * pos.X + B * pos.Y + C > 0)
+			{
+				A = -A;
+				B = -B;
+				C = -C;
+			}
+
+			Func<Vector2, float> pointPos = (p) => A * p.X + B * p.Y + C;
+			Func<Vector2, Vector2, Vector2> pointIntersection = (a1, a2) =>
+			{
+				float A2 = a1.Y - a2.Y;
+				float B2 = a2.X - a1.X;
+				float C2 = a1.X * a2.Y - a2.X * a1.Y;
+
+				return new Vector2((B*C2 - B2*C)/(A*B2 - A2*B), (A*C2 - A2*C)/(B*A2 - B2*A));
+			};
+
 
 			for (int i = 0; i < vertexs.Length; ++i)
 			{
-				var sample = vertexs[i].Position - center;
-
-				if (a.X * (-sample.Y) + a.Y * sample.X > 0)
-					a = sample;
-
-				if (b.X * (-sample.Y) + b.Y * sample.X < 0)
-					b = sample;
+				var curPoint = vertexs[i];
+				var nextPoint = vertexs[(i + 1) % vertexs.Length];
+				if (pointPos(curPoint) >= 0)
+				{
+					//При переходе с положительной на отрицательную сторону, попадает точка перечения 
+					if (pointPos(nextPoint) < 0)
+					{
+						pointCallback(pointIntersection(curPoint, nextPoint));
+					}
+					//При движении в положительной зоне, просто передаём следующую точку
+					else
+					{
+						pointCallback(nextPoint);
+					}
+				}
+				else
+				{
+					//при выходе из отрицательной зоны, нужно внести точку пересчения и следующую точку
+					if (pointPos(nextPoint) >= 0)
+					{
+						pointCallback(pointIntersection(curPoint, nextPoint));
+						pointCallback(nextPoint);
+					}					
+				}
 			}
-
-			callback(center + a, center + b);
-
 		}
 
 		void MixTexture(RenderTarget2D src, RenderTarget2D mask = null)
@@ -354,8 +428,8 @@ namespace Wandering
 
 			//2. хотя бы одна точка должна лежать в полуплости куда падает тень
 			var sh = a2 - a1;
-			var b1InShadow = angleTest(sh, b1 - a1) <= 0;
-			var b2InShadow = angleTest(sh, b2 - a1) <= 0;
+			var b1InShadow = angleTest(sh, b1 - a1) < 0;
+			var b2InShadow = angleTest(sh, b2 - a1) < 0;
 			if ( !b1InShadow && !b2InShadow)
 				return false;
 
@@ -418,7 +492,18 @@ namespace Wandering
 			graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.TriangleList, shadowVertexList, 0, 2);
 		}
 
-		void drawShadow(World.Gate gate, Vector2 pos, float dir)
+		void fillGateShadow()
+		{
+			var oldRenderTargets = graphics.GraphicsDevice.GetRenderTargets();
+			graphics.GraphicsDevice.SetRenderTarget(gateShadow);
+
+			effect.CurrentTechnique.Passes[0].Apply();
+
+			graphics.GraphicsDevice.Clear(Color.White);
+			graphics.GraphicsDevice.SetRenderTargets(oldRenderTargets);
+		}
+
+		void drawGateShadow (World.Gate gate, Vector2 pos, float dir)
 		{
 			var a = gate.Vertexes[0].Position;
 			var b = gate.Vertexes[1].Position;
@@ -429,6 +514,7 @@ namespace Wandering
 
 			effect.View = Matrix.CreateTranslation( -pos.X, -pos.Y, 0) * Matrix.CreateRotationZ(MathHelper.ToRadians(-dir));
 			effect.CurrentTechnique.Passes[0].Apply();
+
 			graphics.GraphicsDevice.Clear(Color.Transparent);
 			
 			drawShadow(new Vector3(pos,0), a, b, Color.White);
@@ -437,10 +523,10 @@ namespace Wandering
 			var lA = a;
 			var lB = b;
 			level.Poligons.ForEach(x => 
-				toStartShadowLine(pos, x.Vertexs, (sh1, sh2) => 
+				toStartShadowLine(pos, x.Points, null, (sh1, sh2) => 
 				{
 					if (testShasow(pos, new Vector2(sh1.X, sh1.Y), new Vector2(sh2.X, sh2.Y), new Vector2(lA.X, lA.Y), new Vector2(lB.X, lB.Y)))
-						drawShadow(new Vector3(pos, 0), sh1, sh2, Color.Black);
+						drawShadow(new Vector3(pos, 0), new Vector3(sh1,0), new Vector3(sh2,0), Color.Black);
 				})
 			);
 
@@ -478,5 +564,5 @@ namespace Wandering
 			graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionTextureTexture>(PrimitiveType.TriangleList, l, 0, 2);
 		}
 
-    }
+	}
 }
