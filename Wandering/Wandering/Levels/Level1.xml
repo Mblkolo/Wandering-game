@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <Level>
-  <Player x="0" y ="0" direction="0" />
+  <Player x="0" y ="10" direction="0" />
   <Scene>
     <Poligon>
       <Point x="-10" y="10" />

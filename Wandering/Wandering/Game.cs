@@ -9,6 +9,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
 using System.IO;
+using Wandering.Helpers;
 
 namespace Wandering
 {
@@ -139,7 +140,45 @@ namespace Wandering
 				direction.Normalize();
 				direction = Vector2.Transform(direction, Matrix.CreateRotationZ(MathHelper.ToRadians(level.Player.direction)));
 
-				level.Player.Pos += (direction * gameTime.ElapsedGameTime.Milliseconds / 1000 * 10); //10 единиц в секунду
+				var newPos = level.Player.Pos + (direction * gameTime.ElapsedGameTime.Milliseconds / 1000 * 10); //10 единиц в секунду
+				
+				//пересекли ли хоть один телепорт?
+				var gate = level.Teleports.SelectMany(x => new World.Gate[]{x.GateA, x.GateB}).FirstOrDefault( g =>
+				{
+					//1. пересечение линии телепорта
+					var g1 = g.Vertexes[0].Position.ToVector2();
+					var g2 = g.Vertexes[1].Position.ToVector2();
+
+
+					var p1 = level.Player.Pos - g1;
+					var p2 = newPos - g1;
+					var gv = g2 - g1;
+
+					var ang1 = angleTest(gv, p1);
+					var ang2 = angleTest(gv, p2);
+
+					if ((ang1 <= 0 && ang2 <= 0) || (ang1 >= 0 && ang2 >= 0))
+						return false;
+
+					p1 = g1 - level.Player.Pos;
+					p2 = g2 - level.Player.Pos;
+					gv = newPos - level.Player.Pos;
+					ang1 = angleTest(gv, p1);
+					ang2 = angleTest(gv, p2);
+
+					if ((ang1 <= 0 && ang2 <= 0) || (ang1 >= 0 && ang2 >= 0))
+						return false;
+					
+					return true;
+				});
+
+				if (gate != null)
+				{
+					newPos = positionFromGate(gate, newPos);
+					level.Player.direction = directionFromGate(gate, level.Player.direction);
+				}
+				level.Player.Pos = newPos;
+
 			}
 
 			if (kState.IsKeyDown(Keys.A))
@@ -258,18 +297,21 @@ namespace Wandering
 					graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.LineList, x.GateB.Vertexes, 0, 1);
 				});
 
+			drawPlayer();
+
+			effect.View = t;
+		}
+
+		void drawPlayer()
+		{
 			var vertexList = new VertexPositionColor[3];
 			vertexList[1] = new VertexPositionColor(new Vector3(0 + level.Player.Pos.X, 0.5f + level.Player.Pos.Y, 0), Color.Gray);
 			vertexList[0] = new VertexPositionColor(new Vector3(-0.5f + level.Player.Pos.X, -0.5f + level.Player.Pos.Y, 0), Color.Gray);
 			vertexList[2] = new VertexPositionColor(new Vector3(0.5f + level.Player.Pos.X, -0.5f + level.Player.Pos.Y, 0), Color.Gray);
 
-			GraphicsDevice.RasterizerState = RasterizerState.CullNone; 
-
+			//GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 			graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>
 			   (PrimitiveType.TriangleList, vertexList, 0, 1);
-
-
-			effect.View = t;
 		}
 
 		void drawPoligonShadow(Vector2 pos, Vector2[] vertexs, World.Gate gate, Color color)
@@ -459,6 +501,12 @@ namespace Wandering
 			return (-a.Y)*b.X + a.X*b.Y;
 		}
 
+		float angleTest(Vector3 a, Vector3 b)
+		{
+			return (-a.Y) * b.X + a.X * b.Y;
+		}
+
+
 		static void Swap<T>(ref T lhs, ref T rhs)
 		{
 			T temp;
@@ -472,7 +520,7 @@ namespace Wandering
 			return (float)(Math.Atan2(v.Y, v.X) - Math.PI/2);
 		}
 
-		VertexPositionColor[] shadowVertexList = new VertexPositionColor[6];
+		VertexPositionColor[] shadowVertexList = new VertexPositionColor[12];
 		void drawShadow(Vector3 pos, Vector3 a, Vector3 b, Color color)
 		{
 			var f = a - pos;
@@ -482,6 +530,17 @@ namespace Wandering
 			f*=100;
 			s*=100;
 
+			//Нормаль к линии a, b
+			var norm = b - a;
+			if ((angleTest(a - pos, b - pos) > 0))
+				norm = new Vector3(norm.Y, -norm.X, 0);
+			else
+				norm = new Vector3(-norm.Y, norm.X, 0);
+			
+			norm.Normalize();
+			norm *= 100;
+			
+
 			shadowVertexList[0] = new VertexPositionColor(a, color);
 			shadowVertexList[1] = new VertexPositionColor(b, color);
 			shadowVertexList[2] = new VertexPositionColor(a + f, color);
@@ -489,7 +548,14 @@ namespace Wandering
 			shadowVertexList[4] = new VertexPositionColor(b, color);
 			shadowVertexList[5] = new VertexPositionColor(b + s, color);
 
-			graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.TriangleList, shadowVertexList, 0, 2);
+			shadowVertexList[6] = new VertexPositionColor(a + f, color);
+			shadowVertexList[7] = new VertexPositionColor(b + s, color);
+			shadowVertexList[8] = new VertexPositionColor(a + f + norm, color);
+			shadowVertexList[9] = new VertexPositionColor(a + f + norm, color);
+			shadowVertexList[10] = new VertexPositionColor(b + s, color);
+			shadowVertexList[11] = new VertexPositionColor(b + s + norm, color);
+
+			graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.TriangleList, shadowVertexList, 0, 4);
 		}
 
 		void fillGateShadow()
@@ -529,6 +595,8 @@ namespace Wandering
 						drawShadow(new Vector3(pos, 0), new Vector3(sh1,0), new Vector3(sh2,0), Color.Black);
 				})
 			);
+
+			drawPlayer();
 
 			graphics.GraphicsDevice.SetRenderTargets(oldRenderTargets);
 		}
