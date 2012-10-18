@@ -13,13 +13,24 @@ namespace Wandering.World
 		{
 			var doc = XDocument.Load("Levels\\Level1.xml");
 
-			var level = new Level(); 
+			var level = new Level();
 
-			level.Poligons = doc.Root.Elements("Scene").Elements("Poligon").Select( x =>
+			level.Poligons = doc.Root.Elements("Scene").Elements("Poligon").Select(x =>
 				{
 					var p = new Poligon();
-					p.Points = x.Elements("Point").Select(y => new Vector2( float.Parse(y.Attribute("x").Value), float.Parse(y.Attribute("y").Value))).ToArray();
+					p.Points = x.Elements("Point").Select(y => new Vector2(float.Parse(y.Attribute("x").Value), float.Parse(y.Attribute("y").Value))).ToArray();
 					return p;
+				}
+			).ToList();
+
+			level.Images = doc.Root.Elements("Scene").Elements("Image").Select(x =>
+				{
+					var i = new Image();
+					i.pos = new Vector2(float.Parse(x.Attribute("x").Value), float.Parse(x.Attribute("y").Value));
+					i.textureName = x.Attribute("name").Value;
+					i.width = float.Parse(x.Attribute("w").Value);
+					i.height = float.Parse(x.Attribute("h").Value);
+					return i;
 				}
 			).ToList();
 
@@ -48,7 +59,7 @@ namespace Wandering.World
 			).ToList();
 
 			var player = new Player();
-			player.Pos = new Vector2( float.Parse(doc.Root.Element("Player").Attribute("x").Value), float.Parse(doc.Root.Element("Player").Attribute("y").Value) );
+			player.Pos = new Vector2(float.Parse(doc.Root.Element("Player").Attribute("x").Value), float.Parse(doc.Root.Element("Player").Attribute("y").Value));
 			player.direction = float.Parse(doc.Root.Element("Player").Attribute("direction").Value);
 			level.Player = player;
 

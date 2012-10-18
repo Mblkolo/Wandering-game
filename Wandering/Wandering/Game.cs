@@ -69,6 +69,7 @@ namespace Wandering
 			// TODO: use this.Content to load your game content here
 
 			level = World.Scene.LoadLevel(1);
+			level.Images.ForEach(x => x.texture = Content.Load<Texture2D>(x.textureName));
 
 			vertexDeclaration = new VertexDeclaration(VertexPositionTexture.VertexDeclaration.GetVertexElements());
 
@@ -79,24 +80,24 @@ namespace Wandering
 			int w = graphics.PreferredBackBufferWidth;
 			int h = graphics.PreferredBackBufferHeight;
 			var prj = effect.Projection;
-			if(w>h)
-				prj.M22 *= ((float)w/(float)h);
+			if (w > h)
+				prj.M22 *= ((float)w / (float)h);
 			else
-				prj.M11 *= ((float)h/(float)w);
+				prj.M11 *= ((float)h / (float)w);
 
-			prj.M11/=50;
-			prj.M22/=50;
+			prj.M11 /= 50;
+			prj.M22 /= 50;
 			effect.Projection = prj;
 
 			gateView = new RenderTarget2D(graphics.GraphicsDevice, w, h, false, SurfaceFormat.Rgba64, DepthFormat.None);
 			gateShadow = new RenderTarget2D(graphics.GraphicsDevice, w, h, false, SurfaceFormat.Rgba64, DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
 			mainView = new RenderTarget2D[maxTelepotDepth];
-			for(int i=0; i<mainView.Length; ++i)
+			for (int i = 0; i < mainView.Length; ++i)
 				mainView[i] = new RenderTarget2D(graphics.GraphicsDevice, w, h, false, SurfaceFormat.Rgba64, DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
 
-			for(int i=0; i<LevelColor.Length; ++i)
+			for (int i = 0; i < LevelColor.Length; ++i)
 			{
-				var force = 255 - (128/LevelColor.Length) * i;
+				var force = 255 - (128 / LevelColor.Length) * i;
 				LevelColor[i] = new Color(force, force, force);
 			}
 
@@ -135,42 +136,22 @@ namespace Wandering
 			if (kState.IsKeyDown(Keys.Left))
 				direction.X -= 1;
 
-			if(direction.Length() != 0)
+			if (direction.Length() != 0)
 			{
 				direction.Normalize();
 				direction = Vector2.Transform(direction, Matrix.CreateRotationZ(MathHelper.ToRadians(level.Player.direction)));
 
 				var newPos = level.Player.Pos + (direction * gameTime.ElapsedGameTime.Milliseconds / 1000 * 10); //10 единиц в секунду
-				
+
 				//пересекли ли хоть один телепорт?
-				var gate = level.Teleports.SelectMany(x => new World.Gate[]{x.GateA, x.GateB}).FirstOrDefault( g =>
-				{
-					//1. пересечение линии телепорта
-					var g1 = g.Vertexes[0].Position.ToVector2();
-					var g2 = g.Vertexes[1].Position.ToVector2();
-
-
-					var p1 = level.Player.Pos - g1;
-					var p2 = newPos - g1;
-					var gv = g2 - g1;
-
-					var ang1 = angleTest(gv, p1);
-					var ang2 = angleTest(gv, p2);
-
-					if ((ang1 <= 0 && ang2 <= 0) || (ang1 >= 0 && ang2 >= 0))
-						return false;
-
-					p1 = g1 - level.Player.Pos;
-					p2 = g2 - level.Player.Pos;
-					gv = newPos - level.Player.Pos;
-					ang1 = angleTest(gv, p1);
-					ang2 = angleTest(gv, p2);
-
-					if ((ang1 <= 0 && ang2 <= 0) || (ang1 >= 0 && ang2 >= 0))
-						return false;
-					
-					return true;
-				});
+				var gate = level.Teleports.SelectMany(x => new World.Gate[] { x.GateA, x.GateB }).FirstOrDefault(g =>
+					Vector.DetectCrossing(
+						g.Vertexes[0].Position.ToVector2(),
+						g.Vertexes[1].Position.ToVector2(),
+						level.Player.Pos,
+						newPos
+					)
+				);
 
 				if (gate != null)
 				{
@@ -191,10 +172,10 @@ namespace Wandering
 			if (kState.IsKeyDown(Keys.Subtract))
 				minusPresed = true;
 
-			if (minusPresed && kState.IsKeyUp(Keys.Subtract) )
-			{	
+			if (minusPresed && kState.IsKeyUp(Keys.Subtract))
+			{
 				minusPresed = false;
-				if(telepotDepth > 1)
+				if (telepotDepth > 1)
 					--telepotDepth;
 			}
 
@@ -244,23 +225,24 @@ namespace Wandering
 				return null;
 
 			var oldRenderTargets = graphics.GraphicsDevice.GetRenderTargets();
-			graphics.GraphicsDevice.SetRenderTarget( mainView[depth] );
+			graphics.GraphicsDevice.SetRenderTarget(mainView[depth]);
 			graphics.GraphicsDevice.Clear(debugMode ? LevelColor[depth] : Color.White);
-			
+
 			//Рисуем полигоны уровня
 			if (depth >= startDepth)
 				DrawLelel(pos, direction, gate);
 
 			//Рисуем то, что за телепортами
-			var gates = level.Teleports.SelectMany(x => new World.Gate[]{x.GateA, x.GateB}).OrderByDescending(x => (x.Center - pos).Length())
+			var gates = level.Teleports.SelectMany(x => new World.Gate[] { x.GateA, x.GateB }).OrderByDescending(x => (x.Center - pos).Length())
 				.Where(x => Vector2.Dot(x.Direction, (pos - x.Center)) > 0).ToList();
 
-			gates.ForEach( x => {
+			gates.ForEach(x =>
+			{
 				var gPos = positionFromGate(x, pos);
 				var gDir = directionFromGate(x, direction);
 
-				var rt = DrawLevelRecursive(gPos, gDir, depth+1, x.Pair);
-				if(rt==null)
+				var rt = DrawLevelRecursive(gPos, gDir, depth + 1, x.Pair);
+				if (rt == null)
 					return;
 
 				if (depth >= startDepth)
@@ -276,21 +258,20 @@ namespace Wandering
 			return mainView[depth];
 		}
 
-
-
 		void DrawLelel(Vector2 pos, float direction, World.Gate gate)
 		{
 			var t = effect.View;
-			effect.View = Matrix.CreateTranslation(new Vector3(-pos, 0)) * Matrix.CreateRotationZ( MathHelper.ToRadians(-direction) );
+			effect.View = Matrix.CreateTranslation(new Vector3(-pos, 0)) * Matrix.CreateRotationZ(MathHelper.ToRadians(-direction));
 
+			GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 			effect.CurrentTechnique.Passes[0].Apply();
-						
-			level.Poligons.ForEach(x => {
+			level.Poligons.ForEach(x =>
+			{
 				drawPoligonShadow(pos, x.Points, gate, debugMode ? Color.Red : Color.Black);
 				graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.TriangleList, x.Vertexs, 0, x.TringleCount);
 			});
 
-			if(debugMode)
+			if (debugMode)
 				level.Teleports.ForEach(x =>
 				{
 					graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.LineList, x.GateA.Vertexes, 0, 1);
@@ -317,18 +298,15 @@ namespace Wandering
 		void drawPoligonShadow(Vector2 pos, Vector2[] vertexs, World.Gate gate, Color color)
 		{
 			//всё просто, нужно определить крайние точки из vertexs
-
 			toStartShadowLine(pos, vertexs, gate, (a, b) => drawShadow(new Vector3(pos, 0), new Vector3(a, 0), new Vector3(b, 0), color));
 		}
 
 		void toStartShadowLine(Vector2 pos, Vector2[] vertexs, World.Gate gate, Action<Vector2, Vector2> callback)
 		{
-			//var center = new Vector3(pos, 0);
-
 			Vector2? a = null;
 			Vector2? b = null;
 
-			cutShape(pos, vertexs, gate, point => 
+			Action<Vector2> extremePoints = point =>
 			{
 
 				if (a == null)
@@ -344,89 +322,27 @@ namespace Wandering
 
 				if (b.Value.X * (-sample.Y) + b.Value.Y * sample.X < 0)
 					b = sample;
+			};
 
-				
-			});
+			if(gate == null)
+				vertexs.ForEach(extremePoints);
+			else
+				Vector.cutShape(pos, vertexs, new Segment2(gate.Vertexes[0].Position.ToVector2(), gate.Vertexes[1].Position.ToVector2()), extremePoints);
 
-			if(a!=null)
+			if (a != null)
 				callback(pos + a.Value, pos + b.Value);
 		}
 
-		void cutShape(Vector2 pos, Vector2[] vertexs, World.Gate gate, Action<Vector2> pointCallback)
-		{
-
-			if (gate == null)
-			{
-				for(int i=0; i<vertexs.Length; ++i)
-					pointCallback(vertexs[i]);
-				return;
-			}
-
-			float A = gate.Vertexes[0].Position.Y - gate.Vertexes[1].Position.Y;
-			float B = gate.Vertexes[1].Position.X - gate.Vertexes[0].Position.X;
-			float C = gate.Vertexes[0].Position.X * gate.Vertexes[1].Position.Y - gate.Vertexes[1].Position.X * gate.Vertexes[0].Position.Y;
-
-			if (A * pos.X + B * pos.Y + C > 0)
-			{
-				A = -A;
-				B = -B;
-				C = -C;
-			}
-
-			Func<Vector2, float> pointPos = (p) => A * p.X + B * p.Y + C;
-			Func<Vector2, Vector2, Vector2> pointIntersection = (a1, a2) =>
-			{
-				float A2 = a1.Y - a2.Y;
-				float B2 = a2.X - a1.X;
-				float C2 = a1.X * a2.Y - a2.X * a1.Y;
-
-				return new Vector2((B*C2 - B2*C)/(A*B2 - A2*B), (A*C2 - A2*C)/(B*A2 - B2*A));
-			};
-
-
-			for (int i = 0; i < vertexs.Length; ++i)
-			{
-				var curPoint = vertexs[i];
-				var nextPoint = vertexs[(i + 1) % vertexs.Length];
-				if (pointPos(curPoint) >= 0)
-				{
-					//При переходе с положительной на отрицательную сторону, попадает точка перечения 
-					if (pointPos(nextPoint) < 0)
-					{
-						pointCallback(pointIntersection(curPoint, nextPoint));
-					}
-					//При движении в положительной зоне, просто передаём следующую точку
-					else
-					{
-						pointCallback(nextPoint);
-					}
-				}
-				else
-				{
-					//при выходе из отрицательной зоны, нужно внести точку пересчения и следующую точку
-					if (pointPos(nextPoint) >= 0)
-					{
-						pointCallback(pointIntersection(curPoint, nextPoint));
-						pointCallback(nextPoint);
-					}					
-				}
-			}
-		}
-
-		void MixTexture(RenderTarget2D src, RenderTarget2D mask = null)
+		void MixTexture(RenderTarget2D src, RenderTarget2D mask)
 		{
 			spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.NonPremultiplied);
-
-			if(mask !=null)
-			{
-				mixEffect.Parameters["AlphaMap"].SetValue(gateShadow);
-				mixEffect.CurrentTechnique.Passes[0].Apply();
-			}
+			
+			mixEffect.Parameters["AlphaMap"].SetValue(gateShadow);
+			mixEffect.CurrentTechnique.Passes[0].Apply();
+			
 			spriteBatch.Draw(src, graphics.GraphicsDevice.Viewport.Bounds, Color.White);
-
 			spriteBatch.End();
 		}
-
 
 		Vector2 positionFromGate(World.Gate gate, Vector2 pos)
 		{
@@ -450,76 +366,6 @@ namespace Wandering
 			return direction + gate.Pair.Angle - (gate.Angle + 180);
 		}
 
-		/// <summary>
-		/// Проверяет находится ли отрезок [b1,b2] в тени [a1,a2], если смотреть из pos
-		/// </summary>
-		/// <returns>true - если находится</returns>
-		bool testShasow(Vector2 pos, Vector2 a1, Vector2 a2, Vector2 b1, Vector2 b2)
-		{
-			a1 = a1 - pos;
-			a2 = a2 - pos;
-			b1 = b1 - pos;
-			b2 = b2 - pos;
-
-			//1. разница между вторыми и первыми точками должна быть не меньше нуля и меньше 180 градусов
-			if (angleTest(a1, a2) < 0)
-				Swap(ref a1, ref a2);
-
-			if (angleTest(b1, b2) < 0)
-				Swap(ref a1, ref a2);
-
-			//2. хотя бы одна точка должна лежать в полуплости куда падает тень
-			var sh = a2 - a1;
-			var b1InShadow = angleTest(sh, b1 - a1) < 0;
-			var b2InShadow = angleTest(sh, b2 - a1) < 0;
-			if ( !b1InShadow && !b2InShadow)
-				return false;
-
-			//3. если хотя бы одна точка находится в тени заданного отрезка, то тест положителен
-			if( b1InShadow && (angleTest(a1, b1) > 0 && angleTest(a2, b1) < 0) )
-				return true;
-
-			if (b2InShadow && (angleTest(a1, b2) > 0 && angleTest(a2, b2) < 0))
-				return true;
-
-			//4. если точки в разных полуплостях относительно одного из векторов задающих отрезок тени, то тест положителен
-			if (b1InShadow && angleTest(a1, b1) <= 0 && angleTest(a1, b2) > 0)
-				return true;
-			
-			if(b2InShadow && angleTest(a2, b2) >= 0 && angleTest(a2, b1) < 0)
-				return true;
-
-			return false;
-		}
-
-		/// <summary>
-		/// Опеределяет положение вектора b относительно a
-		/// </summary>
-		/// <returns>больше нуля, если +0...+180, меньше нуля, если -0...-180 градусо </returns>
-		float angleTest(Vector2 a, Vector2 b)
-		{
-			return (-a.Y)*b.X + a.X*b.Y;
-		}
-
-		float angleTest(Vector3 a, Vector3 b)
-		{
-			return (-a.Y) * b.X + a.X * b.Y;
-		}
-
-
-		static void Swap<T>(ref T lhs, ref T rhs)
-		{
-			T temp;
-			temp = lhs;
-			lhs = rhs;
-			rhs = temp;
-		}
-
-		float getAngle(Vector2 v)
-		{
-			return (float)(Math.Atan2(v.Y, v.X) - Math.PI/2);
-		}
-
 		VertexPositionColor[] shadowVertexList = new VertexPositionColor[12];
 		void drawShadow(Vector3 pos, Vector3 a, Vector3 b, Color color)
 		{
@@ -527,19 +373,19 @@ namespace Wandering
 			var s = b - pos;
 			f.Normalize();
 			s.Normalize();
-			f*=100;
-			s*=100;
+			f *= 100;
+			s *= 100;
 
 			//Нормаль к линии a, b
 			var norm = b - a;
-			if ((angleTest(a - pos, b - pos) > 0))
+			if ((Vector.angleTest(a - pos, b - pos) > 0))
 				norm = new Vector3(norm.Y, -norm.X, 0);
 			else
 				norm = new Vector3(-norm.Y, norm.X, 0);
-			
+
 			norm.Normalize();
 			norm *= 100;
-			
+
 
 			shadowVertexList[0] = new VertexPositionColor(a, color);
 			shadowVertexList[1] = new VertexPositionColor(b, color);
@@ -569,30 +415,29 @@ namespace Wandering
 			graphics.GraphicsDevice.SetRenderTargets(oldRenderTargets);
 		}
 
-		void drawGateShadow (World.Gate gate, Vector2 pos, float dir)
+		void drawGateShadow(World.Gate gate, Vector2 pos, float dir)
 		{
 			var a = gate.Vertexes[0].Position;
 			var b = gate.Vertexes[1].Position;
 
-
 			var oldRenderTargets = graphics.GraphicsDevice.GetRenderTargets();
 			graphics.GraphicsDevice.SetRenderTarget(gateShadow);
 
-			effect.View = Matrix.CreateTranslation( -pos.X, -pos.Y, 0) * Matrix.CreateRotationZ(MathHelper.ToRadians(-dir));
+			effect.View = Matrix.CreateTranslation(-pos.X, -pos.Y, 0) * Matrix.CreateRotationZ(MathHelper.ToRadians(-dir));
 			effect.CurrentTechnique.Passes[0].Apply();
 
 			graphics.GraphicsDevice.Clear(Color.Transparent);
-			
-			drawShadow(new Vector3(pos,0), a, b, Color.White);
+
+			drawShadow(new Vector3(pos, 0), a, b, Color.White);
 
 			//затираем тенями
 			var lA = a;
 			var lB = b;
-			level.Poligons.ForEach(x => 
-				toStartShadowLine(pos, x.Points, null, (sh1, sh2) => 
+			level.Poligons.ForEach(x =>
+				toStartShadowLine(pos, x.Points, null, (sh1, sh2) =>
 				{
-					if (testShasow(pos, new Vector2(sh1.X, sh1.Y), new Vector2(sh2.X, sh2.Y), new Vector2(lA.X, lA.Y), new Vector2(lB.X, lB.Y)))
-						drawShadow(new Vector3(pos, 0), new Vector3(sh1,0), new Vector3(sh2,0), Color.Black);
+					if (Vector.testShasow(pos, new Vector2(sh1.X, sh1.Y), new Vector2(sh2.X, sh2.Y), new Vector2(lA.X, lA.Y), new Vector2(lB.X, lB.Y)))
+						drawShadow(new Vector3(pos, 0), new Vector3(sh1, 0), new Vector3(sh2, 0), Color.Black);
 				})
 			);
 
@@ -612,25 +457,5 @@ namespace Wandering
 			}
 			graphics.GraphicsDevice.SetRenderTargets(t);
 		}
-
-		void drawFullScreen()
-		{			
-			var a = new Vector2(-1, 1);
-			var b = new Vector2(1, 1);
-			var c = new Vector2(1, -1);
-			var d = new Vector2(-1, -1);
-
-			VertexPositionTextureTexture[] l = new VertexPositionTextureTexture[6];
-
-			l[0] = new VertexPositionTextureTexture(new Vector3(a, 0), new Vector2(0, 0));
-			l[1] = new VertexPositionTextureTexture(new Vector3(b, 0), new Vector2(1, 0));
-			l[2] = new VertexPositionTextureTexture(new Vector3(d, 0), new Vector2(0, 1));
-			l[3] = new VertexPositionTextureTexture(new Vector3(b, 0), new Vector2(1, 0));
-			l[4] = new VertexPositionTextureTexture(new Vector3(c, 0), new Vector2(1, 1));
-			l[5] = new VertexPositionTextureTexture(new Vector3(d, 0), new Vector2(0, 1));
-
-			graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionTextureTexture>(PrimitiveType.TriangleList, l, 0, 2);
-		}
-
 	}
 }

@@ -15,5 +15,6 @@
       <Point x="10" y="-10" />
     </Poligon>
     <Teleport x1="0" y1="-5" x2="0" y2="5" ang1="180" ang2="0" len="10" />
+    <Image x="10" y="10" w="10" h="10" name="first" ang="0" />
   </Scene>
 </Level>
