@@ -1,20 +1,46 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <Level>
-  <Player x="0" y ="10" direction="0" />
+  <Player x="10" y ="0" direction="0" />
   <Scene>
     <Poligon>
-      <Point x="-10" y="10" />
-      <Point x="-5" y="10" />
-      <Point x="-5" y="-10" />
-      <Point x="-10" y="-10" />
+      <Point x="0" y="0" />
+      <Point x="0" y="25" />
+      <Point x="5" y="25" />
+      <Point x="5" y="0" />
     </Poligon>
     <Poligon>
-      <Point x="10" y="10" />
-      <Point x="5" y="10" />
-      <Point x="5" y="-10" />
-      <Point x="10" y="-10" />
+      <Point x="0" y="35" />
+      <Point x="0" y="70" />
+      <Point x="5" y="70" />
+      <Point x="5" y="35" />
     </Poligon>
-    <Teleport x1="0" y1="-5" x2="0" y2="5" ang1="180" ang2="0" len="10" />
-    <Image x="10" y="10" w="10" h="10" name="first" ang="0" />
+    <Poligon>
+      <Point x="0" y="35" />
+      <Point x="0" y="25" />
+      <Point x="1" y="25" />
+      <Point x="1" y="35" />
+    </Poligon>
+    <Poligon>
+      <Point x="15" y="0" />
+      <Point x="15" y="45" />
+      <Point x="20" y="45" />
+      <Point x="20" y="0" />
+    </Poligon>
+    <Poligon>
+      <Point x="15" y="55" />
+      <Point x="15" y="70" />
+      <Point x="20" y="70" />
+      <Point x="20" y="55" />
+    </Poligon>
+    <Poligon>
+      <Point x="0" y="70" />
+      <Point x="0" y="75" />
+      <Point x="20" y="75" />
+      <Point x="20" y="70" />
+    </Poligon>
+    <Teleport x1="2.5" y1="30" x2="10" y2="67.5" ang1="-90" ang2="180" len="10" />
+    <Image x="10" y="0" w="10" h="10" name="one" ang="0" />
+    <Image x="10" y="30" w="10" h="10" name="two" ang="0" />
+    <Image x="25" y="50" w="10" h="10" name="three" ang="0" />
   </Scene>
 </Level>

@@ -143,22 +143,34 @@ namespace Wandering
 
 				var newPos = level.Player.Pos + (direction * gameTime.ElapsedGameTime.Milliseconds / 1000 * 10); //10 единиц в секунду
 
-				//пересекли ли хоть один телепорт?
-				var gate = level.Teleports.SelectMany(x => new World.Gate[] { x.GateA, x.GateB }).FirstOrDefault(g =>
-					Vector.DetectCrossing(
-						g.Vertexes[0].Position.ToVector2(),
-						g.Vertexes[1].Position.ToVector2(),
-						level.Player.Pos,
-						newPos
-					)
-				);
-
-				if (gate != null)
+				bool poligonCollision = level.Poligons.Any( x => 
 				{
-					newPos = positionFromGate(gate, newPos);
-					level.Player.direction = directionFromGate(gate, level.Player.direction);
+					for(int i=0; i<x.Points.Length; ++i)
+						if(Vector.DetectCollision(newPos, 0.3f, x.Points[i], x.Points[(i+1)%x.Points.Length]))
+							return true;
+
+					return false;
+				});
+
+				if (!poligonCollision)
+				{ 
+					//пересекли ли хоть один телепорт?
+					var gate = level.Teleports.SelectMany(x => new World.Gate[] { x.GateA, x.GateB }).FirstOrDefault(g =>
+						Vector.DetectCrossing(
+							g.Vertexes[0].Position.ToVector2(),
+							g.Vertexes[1].Position.ToVector2(),
+							level.Player.Pos,
+							newPos
+						)
+					); 
+
+					if (gate != null)
+					{
+						newPos = positionFromGate(gate, newPos);
+						level.Player.direction = directionFromGate(gate, level.Player.direction);
+					}
+					level.Player.Pos = newPos;
 				}
-				level.Player.Pos = newPos;
 
 			}
 
@@ -264,7 +276,22 @@ namespace Wandering
 			effect.View = Matrix.CreateTranslation(new Vector3(-pos, 0)) * Matrix.CreateRotationZ(MathHelper.ToRadians(-direction));
 
 			GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+			effect.TextureEnabled = true;
+			effect.VertexColorEnabled = false;
+
+			level.Images.ForEach( x=>
+			{
+				effect.Texture = x.texture;
+				effect.CurrentTechnique.Passes[0].Apply();
+
+				GraphicsDevice.DrawUserPrimitives<VertexPositionTexture>(PrimitiveType.TriangleList, x.Vertexs, 0, 2);
+			});
+
+			effect.TextureEnabled = false;
+			effect.VertexColorEnabled = true;
 			effect.CurrentTechnique.Passes[0].Apply();
+
 			level.Poligons.ForEach(x =>
 			{
 				drawPoligonShadow(pos, x.Points, gate, debugMode ? Color.Red : Color.Black);

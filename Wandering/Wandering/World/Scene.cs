@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 using Microsoft.Xna.Framework;
+using System.Globalization;
 
 namespace Wandering.World
 {
@@ -11,6 +12,9 @@ namespace Wandering.World
 	{
 		public static Level LoadLevel(int levelNum)
 		{
+			NumberFormatInfo nfi = new CultureInfo("en-US", false).NumberFormat;
+			Func<XElement, string, float> fParse = (e, n) => float.Parse(e.Attribute(n).Value, nfi);
+
 			var doc = XDocument.Load("Levels\\Level1.xml");
 
 			var level = new Level();
@@ -30,6 +34,7 @@ namespace Wandering.World
 					i.textureName = x.Attribute("name").Value;
 					i.width = float.Parse(x.Attribute("w").Value);
 					i.height = float.Parse(x.Attribute("h").Value);
+					i.angle = float.Parse(x.Attribute("ang").Value);
 					return i;
 				}
 			).ToList();
@@ -39,13 +44,13 @@ namespace Wandering.World
 				var t = new Teleport();
 				Gate g = new Gate();
 
-				g.Center = new Vector2(float.Parse(x.Attribute("x1").Value), float.Parse(x.Attribute("y1").Value));
+				g.Center = new Vector2(fParse(x, "x1"), fParse(x, "y1"));
 				g.Angle = float.Parse(x.Attribute("ang1").Value);
 				g.Teleport = t;
 				t.GateA = g;
 
 				g = new Gate();
-				g.Center = new Vector2(float.Parse(x.Attribute("x2").Value), float.Parse(x.Attribute("y2").Value));
+				g.Center = new Vector2(fParse(x, "x2"), fParse(x, "y2"));
 				g.Angle = float.Parse(x.Attribute("ang2").Value);
 				g.Teleport = t;
 				t.GateB = g;

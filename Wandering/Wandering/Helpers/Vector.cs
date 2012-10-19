@@ -15,7 +15,7 @@ namespace Wandering.Helpers
 
 		/// <summary>
 		/// Определяет пересечение отрезка a отрезком b
-		/// Пересечение происходит, если концы отрезка b лежат по разные стороны прямой a или b1 лежит на пряомой a, а b2 не лежит
+		/// Пересечение происходит, если концы отрезка b лежат по разные стороны прямой a или b1 лежит на прямой a, а b2 не лежит
 		/// И точка пересечения отрезков а и b лежит на отрезке a включая крайние точки
 		/// </summary>
 		/// <param name="a1">Начало отрезка a</param>
@@ -27,7 +27,7 @@ namespace Wandering.Helpers
 		{
 			var p1 = b1 - a1;
 			var p2 = b2 - a1;
-			var p0 = a2 - a1;			
+			var p0 = a2 - a1;
 			var ang1 = angleTest(p0, p1);
 			var ang2 = angleTest(p0, p2);
 
@@ -35,7 +35,7 @@ namespace Wandering.Helpers
 			if ((ang1 < 0 && ang2 < 0) || (ang1 > 0 && ang2 > 0) || ang2 == 0)
 				return false;
 
-			
+
 			p1 = a1 - b1;
 			p2 = a2 - b1;
 			p0 = b2 - b1;
@@ -55,7 +55,7 @@ namespace Wandering.Helpers
 		/// <returns>больше нуля, если +0...+180, меньше нуля, если -0...-180 градусов </returns>
 		public static float angleTest(Vector2 a, Vector2 b)
 		{
-			return (-a.Y)*b.X + a.X*b.Y;
+			return (-a.Y) * b.X + a.X * b.Y;
 		}
 
 		public static float angleTest(Vector3 a, Vector3 b)
@@ -173,6 +173,59 @@ namespace Wandering.Helpers
 			}
 		}
 
+		/// <summary>
+		/// Обноруживает пересечение окружности и отрезка
+		/// </summary>
+		/// <param name="c">Цент окружности</param>
+		/// <param name="r">Радиус окружности</param>
+		/// <param name="a1">Начало отрезка</param>
+		/// <param name="a2">Конец отрезка</param>
+		/// <returns></returns>
+		public static bool DetectCollision(Vector2 center, float r, Vector2 a1, Vector2 a2)
+		{
+			var c1 = a1 - center;
+			var c2 = a2 - center;
+
+			var d = a2 - a1;
+
+			float a = d.X * d.X + d.Y * d.Y;
+			float b = 2.0f * (c1.X * d.X + c1.Y * d.Y);
+			float c = c1.X * c1.X + c1.Y * c1.Y - r * r;
+
+			if (-b < 0) return (c < 0);
+			if (-b < (2.0f * a)) return (4.0f * a * c - b * b < 0);
+			return (a + b + c < 0);
+
+
+
+			////float ang = angleTest(a2-a1, c - a1);
+			//var t = a1 - c;
+			//if (t.X * t.X + t.Y * t.Y <= r * r)
+			//    return true;
+
+			//t = a2 - c;
+			//if (t.X * t.X + t.Y * t.Y <= r * r)
+			//    return true;
+
+
+			//return false;
+		}
+
+		/// <summary>
+		/// Поварачивает вектор на 90 градусов по часовой стрелке
+		/// </summary>
+		public static Vector2 Rotate90Right(Vector2 v)
+		{
+			return new Vector2(v.Y, -v.X);
+		}
+
+		/// <summary>
+		/// Поварачивает вектор на 90 градусов против часовой стрелки
+		/// </summary>
+		public static Vector2 Rotate90Left(Vector2 v)
+		{
+			return new Vector2(v.Y, -v.X);
+		}
 
 
 	}
