@@ -56,7 +56,8 @@ namespace Wandering
 		protected override void Initialize()
 		{
 			// TODO: Add your initialization logic here
-
+			graphics.PreferredBackBufferHeight = graphics.PreferredBackBufferWidth = 800;
+			graphics.ApplyChanges();
 			base.Initialize();
 		}
 
@@ -143,17 +144,17 @@ namespace Wandering
 
 				var newPos = level.Player.Pos + (direction * gameTime.ElapsedGameTime.Milliseconds / 1000 * 10); //10 единиц в секунду
 
-				bool poligonCollision = level.Poligons.Any( x => 
+				bool poligonCollision = level.Poligons.Any(x =>
 				{
-					for(int i=0; i<x.Points.Length; ++i)
-						if(Vector.DetectCollision(newPos, 0.3f, x.Points[i], x.Points[(i+1)%x.Points.Length]))
+					for (int i = 0; i < x.Points.Length; ++i)
+						if (Vector.DetectCollision(newPos, 0.3f, x.Points[i], x.Points[(i + 1) % x.Points.Length]))
 							return true;
 
 					return false;
 				});
 
 				if (!poligonCollision)
-				{ 
+				{
 					//пересекли ли хоть один телепорт?
 					var gate = level.Teleports.SelectMany(x => new World.Gate[] { x.GateA, x.GateB }).FirstOrDefault(g =>
 						Vector.DetectCrossing(
@@ -162,7 +163,7 @@ namespace Wandering
 							level.Player.Pos,
 							newPos
 						)
-					); 
+					);
 
 					if (gate != null)
 					{
@@ -202,13 +203,11 @@ namespace Wandering
 					++telepotDepth;
 			}
 
-
 			base.Update(gameTime);
 		}
 
 		bool plusPresed = false;
 		bool minusPresed = false;
-
 
 		/// <summary>
 		/// This is called when the game should draw itself.
@@ -279,8 +278,9 @@ namespace Wandering
 
 			effect.TextureEnabled = true;
 			effect.VertexColorEnabled = false;
+			GraphicsDevice.BlendState = BlendState.AlphaBlend;
 
-			level.Images.ForEach( x=>
+			level.Images.ForEach(x =>
 			{
 				effect.Texture = x.texture;
 				effect.CurrentTechnique.Passes[0].Apply();
@@ -291,6 +291,8 @@ namespace Wandering
 			effect.TextureEnabled = false;
 			effect.VertexColorEnabled = true;
 			effect.CurrentTechnique.Passes[0].Apply();
+
+			drawPlayer();
 
 			level.Poligons.ForEach(x =>
 			{
@@ -305,21 +307,38 @@ namespace Wandering
 					graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>(PrimitiveType.LineList, x.GateB.Vertexes, 0, 1);
 				});
 
-			drawPlayer();
-
 			effect.View = t;
 		}
 
+		private Vector3[] playerVertexBase = new Vector3[]
+		{
+			new Vector3(0, 0.5f, 0),
+			new Vector3(-0.5f, -0.5f, 0),
+			new Vector3(0.5f, -0.5f, 0)		
+		};
+
+		private VertexPositionColor[] playerVertex = new VertexPositionColor[]
+		{
+			new VertexPositionColor(Vector3.Zero, Color.Gray),
+			new VertexPositionColor(Vector3.Zero, Color.Gray),
+			new VertexPositionColor(Vector3.Zero, Color.Gray)	
+		};
+
 		void drawPlayer()
 		{
-			var vertexList = new VertexPositionColor[3];
-			vertexList[1] = new VertexPositionColor(new Vector3(0 + level.Player.Pos.X, 0.5f + level.Player.Pos.Y, 0), Color.Gray);
-			vertexList[0] = new VertexPositionColor(new Vector3(-0.5f + level.Player.Pos.X, -0.5f + level.Player.Pos.Y, 0), Color.Gray);
-			vertexList[2] = new VertexPositionColor(new Vector3(0.5f + level.Player.Pos.X, -0.5f + level.Player.Pos.Y, 0), Color.Gray);
+			var translation = Matrix.CreateRotationZ(MathHelper.ToRadians(level.Player.direction))
+								  * Matrix.CreateTranslation(new Vector3(level.Player.Pos, 0));
+			VertexPositionColor[] playerVertex = new VertexPositionColor[3];
+
+			for (int i = 0; i < 3; ++i)
+			{ 
+				playerVertex[i].Position = Vector3.Transform(playerVertexBase[i], translation);
+				playerVertex[i].Color = Color.Gray;
+			}
 
 			//GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 			graphics.GraphicsDevice.DrawUserPrimitives<VertexPositionColor>
-			   (PrimitiveType.TriangleList, vertexList, 0, 1);
+			   (PrimitiveType.TriangleList, playerVertex, 0, 1);
 		}
 
 		void drawPoligonShadow(Vector2 pos, Vector2[] vertexs, World.Gate gate, Color color)
@@ -351,7 +370,7 @@ namespace Wandering
 					b = sample;
 			};
 
-			if(gate == null)
+			if (gate == null)
 				vertexs.ForEach(extremePoints);
 			else
 				Vector.cutShape(pos, vertexs, new Segment2(gate.Vertexes[0].Position.ToVector2(), gate.Vertexes[1].Position.ToVector2()), extremePoints);
@@ -363,10 +382,10 @@ namespace Wandering
 		void MixTexture(RenderTarget2D src, RenderTarget2D mask)
 		{
 			spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.NonPremultiplied);
-			
+
 			mixEffect.Parameters["AlphaMap"].SetValue(gateShadow);
 			mixEffect.CurrentTechnique.Passes[0].Apply();
-			
+
 			spriteBatch.Draw(src, graphics.GraphicsDevice.Viewport.Bounds, Color.White);
 			spriteBatch.End();
 		}
